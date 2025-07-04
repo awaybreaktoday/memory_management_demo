@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnet-memory-app-aggressive-gc
+  labels:
+    app: dotnet-memory-app-aggressive-gc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dotnet-memory-app-aggressive-gc
+  template:
+    metadata:
+      labels:
+        app: dotnet-memory-app-aggressive-gc
+    spec:
+      containers:
+      - name: dotnet-memory-app
+        image: awaybreaktoday/dotnet-memory-app:v1.0.4-amd64  # Your updated image
+        resources:
+          limits:
+            memory: "256Mi"  # Container limit
+            cpu: "200m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        env:
+        - name: DOTNET_RUNNING_IN_CONTAINER
+          value: "true"
+        # Set GC heap limit to 70% of container limit (179MB)
+        - name: DOTNET_GCHeapHardLimitPercent
+          value: "70"
+        # Alternative: Set absolute limit (choose one approach)
+        # - name: DOTNET_GCHeapHardLimit
+        #   value: "187904819"  # ~179MB
+        # Enable server GC for better performance
+        - name: DOTNET_GCServer
+          value: "true"
+        # Make GC more aggressive about collecting memory
+        - name: DOTNET_GCConserveMemory
+          value: "9"  # Most aggressive (1-9, where 9 is most aggressive)
+        # Set retention threshold lower to trigger GC sooner
+        - name: DOTNET_GCRetainVM
+          value: "0"  # Don't retain virtual memory after GC

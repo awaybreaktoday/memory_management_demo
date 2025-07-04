@@ -1,0 +1,234 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnet-memory-app-advanced-health
+  namespace: default
+  labels:
+    app: dotnet-memory-app-advanced-health
+    version: "1.0.8"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dotnet-memory-app-advanced-health
+  template:
+    metadata:
+      labels:
+        app: dotnet-memory-app-advanced-health
+        version: "1.0.8"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+        # Health check annotations for monitoring
+        health.check/endpoints: "/health/live,/health/ready,/health/detailed"
+        health.check/detailed-path: "/health/detailed"
+    spec:
+      containers:
+      - name: dotnet-memory-app
+        image: awaybreaktoday/dotnet-memory-app:v1.0.8-amd64
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "1024Mi"
+            cpu: "1000m"
+        env:
+        - name: DOTNET_RUNNING_IN_CONTAINER
+          value: "true"
+        - name: DOTNET_GCHeapHardLimitPercent
+          value: "70"
+        - name: DOTNET_GCServer
+          value: "true"
+        - name: ALLOCATION_SIZE_MB
+          value: "15"
+        - name: ALLOCATION_INTERVAL_SECONDS
+          value: "2"
+        - name: ENABLE_CPU_LOAD
+          value: "false"
+        # Advanced health check configuration
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        # Startup probe for slower initialization
+        startupProbe:
+          httpGet:
+            path: /health/live
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 10  # Allow up to 50 seconds for startup
+        # Optional: Lifecycle hooks
+        lifecycle:
+          preStop:
+            httpGet:
+              path: /health/shutdown
+              port: 5000
+              scheme: HTTP
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dotnet-memory-app-advanced-health-service
+  namespace: default
+  labels:
+    app: dotnet-memory-app-advanced-health
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: dotnet-memory-app-advanced-health
+  ports:
+  - name: http
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  - name: health
+    port: 8080
+    targetPort: 5000
+    protocol: TCP
+  type: ClusterIP
+
+---
+# ServiceMonitor for Prometheus scraping health metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: dotnet-memory-app-health-monitor
+  namespace: default
+  labels:
+    app: dotnet-memory-app-advanced-health
+spec:
+  selector:
+    matchLabels:
+      app: dotnet-memory-app-advanced-health
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
+
+---
+# HPA configuration optimized for health-aware scaling
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: dotnet-memory-app-advanced-health-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: dotnet-memory-app-advanced-health
+  minReplicas: 1
+  maxReplicas: 25
+  metrics:
+  # Standard resource metrics
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom health-based metrics (requires Prometheus adapter)
+  - type: Pods
+    pods:
+      metric:
+        name: dotnet_gc_memory_pressure_percent
+      target:
+        type: AverageValue
+        averageValue: "85"
+  - type: Pods
+    pods:
+      metric:
+        name: dotnet_health_check_status
+        selector:
+          matchLabels:
+            check_name: "memory"
+      target:
+        type: AverageValue
+        averageValue: "0.8"  # Scale if health drops below 80%
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+
+---
+# PodDisruptionBudget for availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dotnet-memory-app-advanced-health-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: dotnet-memory-app-advanced-health
+
+---
+# ConfigMap for health check thresholds (optional)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dotnet-memory-app-health-config
+  namespace: default
+data:
+  memory-pressure-warning: "70"
+  memory-pressure-critical: "85"
+  container-utilization-warning: "80"
+  container-utilization-critical: "90"
+  gc-frequency-warning: "50"
+  health-check-interval: "10"

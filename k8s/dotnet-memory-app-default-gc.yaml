@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dotnet-memory-app-default-gc
+  labels:
+    app: dotnet-memory-app-default-gc
+spec:
+  replicas: 1 # Start with 1 replica for easier observation
+  selector:
+    matchLabels:
+      app: dotnet-memory-app-default-gc
+  template:
+    metadata:
+      labels:
+        app: dotnet-memory-app-default-gc
+    spec:
+      containers:
+      - name: dotnet-memory-app
+        image: awaybreaktoday/dotnet-memory-app:v1.0.2-amd64 # REPLACE THIS
+        # Define resource limits for the container
+        # The .NET GC should automatically detect and respect these limits (approx. 75% of 256MiB = 192MiB)
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+        # No explicit DOTNET_GCHeapHardLimitPercent or DOTNET_GCHeapHardLimit here
+        # The app will log what it perceives based on cgroup detection

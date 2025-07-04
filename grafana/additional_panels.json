@@ -1,0 +1,192 @@
+{
+  "additionalPanels": [
+    {
+      "title": "Memory Timeline Heatmap",
+      "type": "heatmap",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+      "targets": [
+        {
+          "expr": "dotnet_process_working_set_mb",
+          "legendFormat": "Working Set",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "yAxis": {
+          "unit": "bytes"
+        }
+      },
+      "description": "Heatmap showing memory usage patterns over time"
+    },
+    
+    {
+      "title": "GC Generation Distribution",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 40},
+      "targets": [
+        {
+          "expr": "dotnet_gc_collections_total{generation=\"0\"}",
+          "legendFormat": "Gen 0"
+        },
+        {
+          "expr": "dotnet_gc_collections_total{generation=\"1\"}",
+          "legendFormat": "Gen 1"
+        },
+        {
+          "expr": "dotnet_gc_collections_total{generation=\"2\"}",
+          "legendFormat": "Gen 2"
+        }
+      ],
+      "description": "Distribution of GC collections by generation"
+    },
+    
+    {
+      "title": "Memory Prediction",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 40},
+      "targets": [
+        {
+          "expr": "predict_linear(dotnet_process_working_set_mb[10m], 600)",
+          "legendFormat": "Predicted Working Set (10min)",
+          "refId": "A"
+        },
+        {
+          "expr": "dotnet_process_working_set_mb",
+          "legendFormat": "Current Working Set",
+          "refId": "B"
+        },
+        {
+          "expr": "dotnet_container_memory_limit_mb",
+          "legendFormat": "Container Limit",
+          "refId": "C"
+        }
+      ],
+      "description": "Predicts future memory usage based on current trends"
+    },
+    
+    {
+      "title": "Custom Business Metrics",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 48},
+      "targets": [
+        {
+          "expr": "dotnet_memory_allocations_total / dotnet_out_of_memory_exceptions_total",
+          "legendFormat": "Allocations per OOM"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 100},
+              {"color": "green", "value": 1000}
+            ]
+          }
+        }
+      },
+      "description": "Average allocations before OutOfMemoryException"
+    },
+    
+    {
+      "title": "Memory Efficiency Trend",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 48},
+      "targets": [
+        {
+          "expr": "avg_over_time((dotnet_memory_current_allocated_mb / dotnet_process_working_set_mb)[5m:])",
+          "legendFormat": "5min Average Efficiency",
+          "refId": "A"
+        },
+        {
+          "expr": "(dotnet_memory_current_allocated_mb / dotnet_process_working_set_mb)",
+          "legendFormat": "Current Efficiency",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0.3},
+              {"color": "yellow", "value": 0.6},
+              {"color": "green", "value": 0.8}
+            ]
+          }
+        }
+      },
+      "description": "Memory efficiency over time - higher is better"
+    },
+    
+    {
+      "title": "System Resource Correlation",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 18, "y": 48},
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total[1m]) * 100",
+          "legendFormat": "CPU Usage %",
+          "refId": "A"
+        },
+        {
+          "expr": "(dotnet_process_working_set_mb / dotnet_container_memory_limit_mb) * 100",
+          "legendFormat": "Memory Usage %",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "CPU Usage %"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}
+            ]
+          }
+        ]
+      },
+      "description": "Correlation between CPU and memory usage"
+    }
+  ],
+  
+  "customQueries": {
+    "memoryEfficiencyAlert": {
+      "query": "(dotnet_memory_current_allocated_mb / dotnet_process_working_set_mb) < 0.5",
+      "description": "Alert when memory efficiency drops below 50%"
+    },
+    "memoryLeakDetection": {
+      "query": "increase(dotnet_process_working_set_mb[1h]) > 50 and increase(dotnet_memory_current_allocated_mb[1h]) < 10",
+      "description": "Potential memory leak: working set growing without allocation growth"
+    },
+    "gcEffectiveness": {
+      "query": "rate(dotnet_gc_collections_total{generation=\"2\"}[5m]) / rate(dotnet_memory_allocated_mb_total[5m])",
+      "description": "GC effectiveness: Gen2 collections per MB allocated"
+    }
+  },
+  
+  "annotationQueries": [
+    {
+      "name": "OutOfMemoryExceptions",
+      "query": "changes(dotnet_out_of_memory_exceptions_total[1m]) > 0",
+      "iconColor": "red",
+      "textFormat": "OOM Exception occurred"
+    },
+    {
+      "name": "High Memory Pressure",
+      "query": "dotnet_gc_memory_pressure_percent > 90",
+      "iconColor": "orange",
+      "textFormat": "Memory pressure: {{value}}%"
+    },
+    {
+      "name": "GC Events",
+      "query": "changes(dotnet_gc_collections_total{generation=\"2\"}[1m]) > 0",
+      "iconColor": "yellow",
+      "textFormat": "Gen2 GC occurred"
+    }
+  ]
+}

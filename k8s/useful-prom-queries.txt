@@ -1,0 +1,46 @@
+# Memory Usage Queries
+
+# Current working set memory in MB
+dotnet_process_working_set_mb
+
+# Memory pressure percentage
+dotnet_gc_memory_pressure_percent
+
+# Current allocated memory by application
+dotnet_memory_current_allocated_mb
+
+# GC heap size
+dotnet_gc_heap_size_mb
+
+# Rate of memory allocations per second
+rate(dotnet_memory_allocations_total[1m])
+
+# Rate of OutOfMemoryExceptions
+rate(dotnet_out_of_memory_exceptions_total[5m])
+
+# GC collection rate by generation
+rate(dotnet_gc_collections_total[1m])
+
+# Memory efficiency: allocated vs working set
+dotnet_memory_current_allocated_mb / dotnet_process_working_set_mb
+
+# Container memory utilization percentage
+(dotnet_process_working_set_mb / dotnet_container_memory_limit_mb) * 100
+
+# Memory pressure alert (when > 80%)
+dotnet_gc_memory_pressure_percent > 80
+
+# High GC rate alert (Gen2 collections)
+rate(dotnet_gc_collections_total{generation="2"}[5m]) > 0.1
+
+# OutOfMemoryException rate alert
+rate(dotnet_out_of_memory_exceptions_total[5m]) > 0
+
+# Memory allocation rate (MB per second)
+rate(dotnet_memory_allocated_mb_total[1m])
+
+# Working set approaching container limit
+dotnet_process_working_set_mb > (dotnet_container_memory_limit_mb * 0.9)
+
+# GC pressure combined with high memory usage
+(dotnet_gc_memory_pressure_percent > 70) and (dotnet_process_working_set_mb > 200)

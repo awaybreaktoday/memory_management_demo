@@ -34,7 +34,7 @@ This project demonstrates **enterprise-grade container memory management** using
 ```bash
 # Clone and deploy
 git clone <repository-url>
-cd DotNetMemoryApp
+cd <repository-url>
 
 # Build and deploy
 docker build -t dotnet-memory-app:demo .
@@ -101,53 +101,7 @@ kubectl port-forward service/dotnet-memory-app-advanced-health-service 5000:5000
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 📁 Project Structure
-
-```
-DotNetMemoryApp/
-├── 📄 README.md                           # This file
-├── 🔧 Core Application Files
-│   ├── Program.cs                         # Main application with Prometheus & health checks
-│   ├── AdvancedHealthChecks.cs           # Comprehensive health monitoring system
-│   ├── MyMemoryLogger.cs                 # Dynamic container-aware logging
-│   ├── DotNetMemoryApp.csproj            # Project configuration
-│   └── Dockerfile                        # Container build configuration
-├── 🚢 Kubernetes Deployments
-│   ├── advanced-health-deployment.yaml   # Production deployment with health checks
-│   ├── basic-hpa.yaml                    # Horizontal Pod Autoscaler config
-│   └── prometheus-deployment.yaml        # Monitoring stack deployment
-├── 📊 Monitoring & Observability
-│   ├── grafana-dashboard.json            # Memory monitoring dashboard
-│   ├── prometheus-config.yaml           # Metrics scraping configuration
-│   └── alert-rules.yaml                 # Alerting rules
-├── 🛠️ Tools & Scripts
-│   ├── health-monitor.sh                 # Real-time health monitoring dashboard
-│   ├── deploy-script.sh                  # Automated deployment script
-│   └── test-script.sh                    # End-to-end testing
-└── 📚 Documentation
-    ├── docs/                             # Detailed documentation
-    ├── examples/                         # Usage examples
-    └── troubleshooting.md               # Common issues and solutions
-```
-
-## 🔧 Installation & Setup
-
-### Method 1: Automated Setup (Recommended)
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd DotNetMemoryApp
-
-# Run automated setup
-chmod +x deploy-script.sh
-./deploy-script.sh
-
-# Start monitoring
-./health-monitor.sh
-```
-
-### Method 2: Manual Setup
+### Method 1: Manual Setup
 
 #### Step 1: Build the Application
 
